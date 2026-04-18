@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>多表格Markdown编辑器 - 可编辑表格+符号映射+剪切粘贴</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            padding: 24px 20px;
+            background: #eef2f5;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .editor-section, .preview-section {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 20px 24px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2f3a;
+            margin-bottom: 16px;
+            border-left: 4px solid #409eff;
+            padding-left: 12px;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+            background: #f8fafc;
+            padding: 12px 16px;
+            border-radius: 16px;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .symbol-btn {
+            padding: 10px 20px;
+            background: #409eff;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-width: 56px;
+            height: 48px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .symbol-btn:hover {
+            background: #66b1ff;
+            transform: translateY(-1px);
+        }
+
+        .custom-symbol-btn {
+            background: #e6a23c;
+        }
+        .custom-symbol-btn:hover {
+            background: #ebb563;
+        }
+
+        .custom-symbol-btn .delete-symbol-btn {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            width: 20px;
+            height: 20px;
+            border-radius: 30px;
+            background: #f56c6c;
+            color: white;
+            border: none;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .custom-symbol-btn:hover .delete-symbol-btn {
+            display: flex;
+        }
+        .delete-symbol-btn:hover {
+            background: #f78989;
+        }
+
+        .custom-config {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            padding: 10px 16px;
+            border-radius: 40px;
+        }
+        .custom-config input {
+            padding: 8px 14px;
+            border: 1px solid #dcdfe6;
+            border-radius: 30px;
+            font-size: 14px;
+            width: 130px;
+            outline: none;
+        }
+        .custom-config input:focus {
+            border-color: #409eff;
+            box-shadow: 0 0 0 2px rgba(64,158,255,0.2);
+        }
+        .custom-config button, .toolbar button {
+            padding: 8px 18px;
+            background: #67c23a;
+            border: none;
+            border-radius: 30px;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .custom-config button:hover, .toolbar button:hover {
+            background: #85ce61;
+            transform: scale(0.98);
+        }
+        .query-btn {
+            background: #909399 !important;
+        }
+        .query-btn:hover {
+            background: #a6a9ad !important;
+        }
+
+        .insert-row {
+            display: flex;
+            gap: 16px;
+            margin: 8px 0 16px 0;
+            justify-content: flex-start;
+        }
+        .insert-btn {
+            border: none;
+            padding: 10px 24px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+            flex: 0 0 auto;
+        }
+        .insert-btn.table-btn {
+            background: #9b59b6;
+        }
+        .insert-btn.table-btn:hover {
+            background: #af6bc9;
+        }
+        .insert-btn.text-btn {
+            background: #67c23a;
+        }
+        .insert-btn.text-btn:hover {
+            background: #85ce61;
+        }
+        .insert-btn.paste-table-btn {
+            background: #e67e22 !important;
+        }
+        .insert-btn.paste-table-btn:hover {
+            background: #f39c12 !important;
+        }
+        .insert-btn.paste-text-btn {
+            background: #e67e22 !important;
+        }
+        .insert-btn.paste-text-btn:hover {
+            background: #f39c12 !important;
+        }
+        .insert-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .blocks-container {
+            margin-top: 8px;
+            border-radius: 16px;
+            background: #fefefe;
+            border: 1px solid #e9ecef;
+            overflow-y: auto;
+            max-height: 700px;
+            min-height: 400px;
+        }
+        .editor-block {
+            border-bottom: 2px solid #eef2f5;
+            background: white;
+            position: relative;
+        }
+        .editor-block:last-child {
+            border-bottom: none;
+        }
+        .block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9fafc;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #4a5568;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .block-header span:first-child {
+            font-weight: 500;
+        }
+        .block-header .header-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .block-header button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            transition: 0.2s;
+            font-weight: 500;
+        }
+        .block-header .cut-btn {
+            color: #e67e22;
+            background: #fef3e2;
+        }
+        .block-header .cut-btn:hover {
+            background: #fde6c0;
+        }
+        .block-header .delete-btn {
+            color: #f56c6c;
+            background: #fee2e2;
+        }
+        .block-header .delete-btn:hover {
+            background: #fcc;
+        }
+        .textarea-block {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            border: none;
+            resize: vertical;
+            outline: none;
+            background: #fff;
+            min-height: 380px;
+        }
+        .table-visual-area {
+            background: #ffffff;
+            padding: 12px;
+        }
+        .visual-table-wrapper {
+            border-radius: 14px;
+            border: 1px solid #e9ecef;
+            background: #ffffff;
+            overflow-x: auto;
+        }
+        .visual-table-title {
+            font-size: 12px;
+            font-weight: 500;
+            background: #f1f5f9;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #2c3e50;
+        }
+        .visual-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            min-width: 400px;
+        }
+        .visual-table th, .visual-table td {
+            border: 1px solid #e2e8f0;
+            padding: 6px 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .visual-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            padding: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .visual-table td {
+            padding: 4px;
+        }
+        .visual-table .cell-input {
+            width: 100%;
+            min-width: 60px;
+            padding: 8px 6px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 13px;
+            background: transparent;
+            transition: all 0.2s;
+            outline: none;
+            font-family: inherit;
+        }
+        .visual-table .cell-input:hover {
+            border-color: #c0c4cc;
+            background: #fef9e6;
+        }
+        .visual-table .cell-input:focus {
+            border-color: #409eff;
+            background: #fff;
+            box-shadow: 0 0 0 2px rgba(64,158,255,0.1);
+        }
+        .visual-table th.col-selected {
+            background: #cce5ff !important;
+        }
+        .visual-table tr.row-selected td {
+            background-color: #ffecb3 !important;
+        }
+        .visual-table tr.row-selected .cell-input {
+            background-color: #ffecb3 !important;
+        }
+        .row-number-cell {
+            background: #f8fafc;
+            cursor: pointer;
+            width: 40px;
+            font-weight: 500;
+            color: #666;
+            text-align: center;
+            user-select: none;
+        }
+        .row-number-cell:hover {
+            background: #e8ecf1;
+        }
+        .col-number-cell {
+            background: #f8fafc;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            user-select: none;
+        }
+        .col-number-cell:hover {
+            background: #e8ecf1;
+        }
+        .table-control-bar {
+            display: flex;
+            gap: 12px;
+            margin: 10px 0 8px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        .table-action-btn {
+            background: #409eff;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 30px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .table-action-btn:hover {
+            background: #66b1ff;
+        }
+        .del-row-btn, .del-col-btn {
+            background: #f56c6c;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 30px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .del-row-btn:disabled, .del-col-btn:disabled {
+            background: #c0c4cc;
+            cursor: not-allowed;
+        }
+        .add-row-btn, .add-col-btn {
+            background: #67c23a;
+        }
+        .add-row-btn:hover, .add-col-btn:hover {
+            background: #85ce61;
+        }
+
+        #preview-area {
+            background: #fcfcfc;
+            border: 1px solid #eef2f5;
+            border-radius: 16px;
+            padding: 16px;
+            height: 700px;
+            overflow: auto;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .copy-btn {
+            margin-top: 16px;
+            padding: 8px 20px;
+            background: #409eff;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 500;
+            align-self: flex-end;
+        }
+        .copy-btn:hover {
+            background: #66b1ff;
+        }
+        .copy-btn.copied {
+            background: #67c23a;
+        }
+        .note {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 8px;
+        }
+        .empty-hint {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="editor-section">
+        <h2>✍️ 多区块编辑器 (符号/表格)</h2>
+        <div class="toolbar">
+            <div class="custom-config">
+                <input type="text" id="custom-symbol" placeholder="符号 如 ∑">
+                <input type="text" id="custom-syntax" placeholder="语法 如 \sum">
+                <button id="add-custom-btn">➕ 添加按钮</button>
+                <button id="symbol-query-btn" class="query-btn">🔍 字符查询</button>
+            </div>
+        </div>
+        <div class="btn-group" id="symbol-btn-container">
+            <button class="symbol-btn" data-symbol="¬">¬</button>
+            <button class="symbol-btn" data-symbol="∧">∧</button>
+            <button class="symbol-btn" data-symbol="∨">∨</button>
+            <button class="symbol-btn" data-symbol="→">→</button>
+            <button class="symbol-btn" data-symbol="↔">↔</button>
+            <button class="symbol-btn" data-symbol="⊕">⊕</button>
+            <button class="symbol-btn" data-symbol="P">P</button>
+            <button class="symbol-btn" data-symbol="Q">Q</button>
+            <button class="symbol-btn" data-symbol="R">R</button>
+            <button class="symbol-btn" data-symbol="∃">∃</button>
+            <button class="symbol-btn" data-symbol="∀">∀</button>
+        </div>
+
+        <div class="insert-row">
+            <button id="add-table-block-btn" class="insert-btn table-btn">📊 插入表格块</button>
+            <button id="add-text-block-btn" class="insert-btn text-btn">📝 插入文本块</button>
+        </div>
+
+        <div id="blocks-container" class="blocks-container">
+            <div class="empty-hint">✨ 点击上方按钮添加表格块或文本块</div>
+        </div>
+        <div class="note">💡 表格块：表头列号、行号不可编辑，用于选中行列。数据单元格可编辑，初始为空。支持剪切/粘贴区块（剪切后只有对应类型的按钮变为粘贴按钮）。每个区块都有【剪切】和【删除】按钮。</div>
+    </div>
+
+    <div class="preview-section">
+        <h2>📄 预览区 (符号转LaTeX，表格每个单元格内容用$$包裹)</h2>
+        <div id="preview-area">暂无内容，请添加表格块或文本块</div>
+        <button class="copy-btn" id="copy-btn">📋 复制预览内容</button>
+    </div>
+</div>
+
+<script>
+    let blocks = [];
+    let nextId = 1;
+    
+    let symbolToSyntaxMap = [
+        { symbol: '↔', syntax: '\\leftrightarrow ' },
+        { symbol: '¬', syntax: '\\neg ' },
+        { symbol: '∧', syntax: '\\land ' },
+        { symbol: '∨', syntax: '\\lor ' },
+        { symbol: '→', syntax: '\\to ' },
+        { symbol: '⊕', syntax: '\\oplus ' },
+        { symbol: '∃', syntax: '\\exists ' },
+        { symbol: '∀', syntax: '\\forall ' },
+        { symbol: 'P', syntax: 'P' },
+        { symbol: 'Q', syntax: 'Q' },
+        { symbol: 'R', syntax: 'R' }
+    ];
+    
+    let blockSelections = {};
+    let savedFocusInfo = null;
+    
+    let clipboardBlock = null;
+    let clipboardType = null;
+    
+    function updateInsertButtonsStyle() {
+        const addTableBtn = document.getElementById('add-table-block-btn');
+        const addTextBtn = document.getElementById('add-text-block-btn');
+        
+        if (clipboardType === 'table') {
+            addTableBtn.textContent = '📋 粘贴表格块';
+            addTableBtn.classList.remove('table-btn');
+            addTableBtn.classList.add('paste-table-btn');
+            addTextBtn.textContent = '📝 插入文本块';
+            addTextBtn.classList.remove('paste-text-btn');
+            addTextBtn.classList.add('text-btn');
+        } else if (clipboardType === 'text') {
+            addTextBtn.textContent = '📋 粘贴文本块';
+            addTextBtn.classList.remove('text-btn');
+            addTextBtn.classList.add('paste-text-btn');
+            addTableBtn.textContent = '📊 插入表格块';
+            addTableBtn.classList.remove('paste-table-btn');
+            addTableBtn.classList.add('table-btn');
+        } else {
+            addTableBtn.textContent = '📊 插入表格块';
+            addTableBtn.classList.remove('paste-table-btn');
+            addTableBtn.classList.add('table-btn');
+            addTextBtn.textContent = '📝 插入文本块';
+            addTextBtn.classList.remove('paste-text-btn');
+            addTextBtn.classList.add('text-btn');
+        }
+    }
+    
+    function getFocusedBlockIndex() {
+        if (!savedFocusInfo || !savedFocusInfo.block) return -1;
+        const blockId = savedFocusInfo.block.id;
+        return blocks.findIndex(b => b.id === blockId);
+    }
+    
+    function insertBlockAt(newBlock, afterIndex) {
+        if (afterIndex >= 0 && afterIndex < blocks.length) {
+            blocks.splice(afterIndex + 1, 0, newBlock);
+        } else {
+            blocks.push(newBlock);
+        }
+    }
+    
+    function getDefaultTableData() {
+        const colCount = 5;
+        const rowCount = 4;
+        const tableData = [];
+        const headerRow = [];
+        for (let i = 1; i <= colCount; i++) {
+            headerRow.push(String(i));
+        }
+        tableData.push(headerRow);
+        for (let r = 0; r < rowCount; r++) {
+            const dataRow = [];
+            for (let c = 0; c < colCount; c++) {
+                dataRow.push("");
+            }
+            tableData.push(dataRow);
+        }
+        return tableData;
+    }
+    
+    function convertLatex(text) {
+        if (!text) return text;
+        let result = text;
+        const sortedMap = [...symbolToSyntaxMap].sort((a, b) => b.symbol.length - a.symbol.length);
+        for (const item of sortedMap) {
+            const regex = new RegExp(item.symbol.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&'), 'g');
+            result = result.replace(regex, item.syntax);
+        }
+        return result;
+    }
+    
+    function wrapCellWithDollar(content) {
+        if (content === undefined || content === null) content = '';
+        const converted = convertLatex(content);
+        if (converted === '') return '$$$$';
+        return `$$${converted}$$`;
+    }
+    
+    function tableDataToMarkdownWithLatex(tableData) {
+        if (!tableData || tableData.length < 2) return "";
+        const cols = tableData[0].length;
+        const convertedHeader = tableData[0].map(cell => wrapCellWithDollar(cell));
+        let header = '|' + convertedHeader.join('|') + '|';
+        let align = '|' + Array(cols).fill(':-:').join('|') + '|';
+        let body = [];
+        for (let i = 1; i < tableData.length; i++) {
+            const convertedRow = tableData[i].map(cell => wrapCellWithDollar(cell));
+            body.push('|' + convertedRow.join('|') + '|');
+        }
+        return [header, align, ...body].join('\n');
+    }
+    
+    function tableDataToMarkdownRaw(tableData) {
+        if (!tableData || tableData.length < 2) return "";
+        const cols = tableData[0].length;
+        let header = '|' + tableData[0].join('|') + '|';
+        let align = '|' + Array(cols).fill(':-:').join('|') + '|';
+        let body = [];
+        for (let i = 1; i < tableData.length; i++) {
+            body.push('|' + tableData[i].join('|') + '|');
+        }
+        return [header, align, ...body].join('\n');
+    }
+    
+    function addRow(block, container) {
+        const cols = block.tableData[0].length;
+        const newRow = [];
+        for (let i = 0; i < cols; i++) {
+            newRow.push("");
+        }
+        block.tableData.push(newRow);
+        block.content = tableDataToMarkdownRaw(block.tableData);
+        renderVisualTableForBlock(block, container);
+        updateGlobalPreview();
+    }
+    
+    function addCol(block, container) {
+        for (let i = 0; i < block.tableData.length; i++) {
+            block.tableData[i].push("");
+        }
+        for (let c = 0; c < block.tableData[0].length; c++) {
+            block.tableData[0][c] = String(c + 1);
+        }
+        block.content = tableDataToMarkdownRaw(block.tableData);
+        renderVisualTableForBlock(block, container);
+        updateGlobalPreview();
+    }
+    
+    function createCellInput(value, onChangeCallback, bgColor, block, row, col) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = value || '';
+        input.className = 'cell-input';
+        if (bgColor && bgColor !== 'transparent') {
+            input.style.backgroundColor = bgColor;
+        }
+        
+        input.addEventListener('change', onChangeCallback);
+        input.addEventListener('focus', (e) => {
+            savedFocusInfo = {
+                element: input,
+                start: input.selectionStart,
+                end: input.selectionEnd,
+                block: block,
+                blockId: block.id,
+                isCellInput: true,
+                row: row,
+                col: col
+            };
+        });
+        input.addEventListener('click', (e) => {
+            e.stopPropagation();
+            savedFocusInfo = {
+                element: input,
+                start: input.selectionStart,
+                end: input.selectionEnd,
+                block: block,
+                blockId: block.id,
+                isCellInput: true,
+                row: row,
+                col: col
+            };
+        });
+        input.addEventListener('keyup', (e) => {
+            savedFocusInfo = {
+                element: input,
+                start: input.selectionStart,
+                end: input.selectionEnd,
+                block: block,
+                blockId: block.id,
+                isCellInput: true,
+                row: row,
+                col: col
+            };
+        });
+        
+        return input;
+    }
+    
+    function renderVisualTableForBlock(block, container) {
+        if (!block.tableData || block.tableData.length === 0) {
+            block.tableData = getDefaultTableData();
+            block.content = tableDataToMarkdownRaw(block.tableData);
+        }
+        const tableData = block.tableData;
+        const rows = tableData.length;
+        const cols = rows > 0 ? tableData[0].length : 0;
+        if (rows === 0 || cols === 0) return;
+        
+        const sel = blockSelections[block.id] || { selectedRow: null, selectedCol: null };
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'visual-table-wrapper';
+        wrapper.innerHTML = `<div class="visual-table-title">✏️ 数据单元格可编辑 | 单击行号选中行，单击列号选中列</div>
+                             <div class="table-control-bar">
+                                <button class="add-row-btn table-action-btn" data-block="${block.id}">➕ 添加行</button>
+                                <button class="add-col-btn table-action-btn" data-block="${block.id}">➕ 添加列</button>
+                                <button class="del-row-btn" data-block="${block.id}" ${sel.selectedRow === null ? 'disabled' : ''}>🗑️ 删除选中行</button>
+                                <button class="del-col-btn" data-block="${block.id}" ${sel.selectedCol === null ? 'disabled' : ''}>❌ 删除选中列</button>
+                             </div>
+                             <div class="visual-table-container"></div>`;
+        const tableContainer = wrapper.querySelector('.visual-table-container');
+        const table = document.createElement('table');
+        table.className = 'visual-table';
+        
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const cornerTh = document.createElement('th');
+        cornerTh.style.background = '#f8fafc';
+        cornerTh.style.width = '40px';
+        cornerTh.style.cursor = 'default';
+        cornerTh.innerHTML = '<span style="opacity:0.5;">#</span>';
+        headerRow.appendChild(cornerTh);
+        
+        for (let c = 0; c < cols; c++) {
+            const th = document.createElement('th');
+            th.className = 'col-number-cell';
+            th.textContent = String(c + 1);
+            th.setAttribute('data-col', c);
+            if (sel.selectedCol === c) th.classList.add('col-selected');
+            th.addEventListener('click', (e) => {
+                e.stopPropagation();
+                blockSelections[block.id] = { selectedRow: null, selectedCol: c };
+                renderVisualTableForBlock(block, container);
+                updateGlobalPreview();
+            });
+            headerRow.appendChild(th);
+        }
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        const tbody = document.createElement('tbody');
+        for (let r = 1; r < rows; r++) {
+            const tr = document.createElement('tr');
+            if (sel.selectedRow === r) {
+                tr.classList.add('row-selected');
+            }
+            const rowNumberTd = document.createElement('td');
+            rowNumberTd.textContent = r;
+            rowNumberTd.className = 'row-number-cell';
+            rowNumberTd.addEventListener('click', (e) => {
+                e.stopPropagation();
+                blockSelections[block.id] = { selectedRow: r, selectedCol: null };
+                renderVisualTableForBlock(block, container);
+                updateGlobalPreview();
+            });
+            tr.appendChild(rowNumberTd);
+            
+            for (let c = 0; c < cols; c++) {
+                const td = document.createElement('td');
+                const input = createCellInput(
+                    tableData[r][c] !== undefined ? tableData[r][c] : '',
+                    (e) => {
+                        tableData[r][c] = e.target.value;
+                        block.content = tableDataToMarkdownRaw(block.tableData);
+                        updateGlobalPreview();
+                    },
+                    sel.selectedCol === c ? '#cce5ff' : 'transparent',
+                    block, r, c
+                );
+                td.appendChild(input);
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+        tableContainer.innerHTML = '';
+        tableContainer.appendChild(table);
+        
+        const addRowBtn = wrapper.querySelector('.add-row-btn');
+        const addColBtn = wrapper.querySelector('.add-col-btn');
+        const delRowBtn = wrapper.querySelector('.del-row-btn');
+        const delColBtn = wrapper.querySelector('.del-col-btn');
+        
+        const newAddRow = addRowBtn.cloneNode(true);
+        const newAddCol = addColBtn.cloneNode(true);
+        const newDelRow = delRowBtn.cloneNode(true);
+        const newDelCol = delColBtn.cloneNode(true);
+        
+        addRowBtn.parentNode.replaceChild(newAddRow, addRowBtn);
+        addColBtn.parentNode.replaceChild(newAddCol, addColBtn);
+        delRowBtn.parentNode.replaceChild(newDelRow, delRowBtn);
+        delColBtn.parentNode.replaceChild(newDelCol, delColBtn);
+        
+        newAddRow.addEventListener('click', () => addRow(block, container));
+        newAddCol.addEventListener('click', () => addCol(block, container));
+        
+        newDelRow.addEventListener('click', () => {
+            const curSel = blockSelections[block.id];
+            if (curSel && curSel.selectedRow !== null && curSel.selectedRow >= 1 && curSel.selectedRow < block.tableData.length) {
+                const deletedIndex = curSel.selectedRow;
+                block.tableData.splice(deletedIndex, 1);
+                if (block.tableData.length <= 1) {
+                    block.tableData = getDefaultTableData();
+                    blockSelections[block.id] = { selectedRow: null, selectedCol: null };
+                } else {
+                    let newSelectedRow = deletedIndex;
+                    if (newSelectedRow >= block.tableData.length) {
+                        newSelectedRow = block.tableData.length - 1;
+                    }
+                    blockSelections[block.id] = { selectedRow: newSelectedRow, selectedCol: null };
+                }
+                block.content = tableDataToMarkdownRaw(block.tableData);
+                renderVisualTableForBlock(block, container);
+                updateGlobalPreview();
+            } else {
+                alert('请先单击行号区选中要删除的行');
+            }
+        });
+        
+        newDelCol.addEventListener('click', () => {
+            const curSel = blockSelections[block.id];
+            if (curSel && curSel.selectedCol !== null && block.tableData[0].length > 1) {
+                const deletedIndex = curSel.selectedCol;
+                for (let i = 0; i < block.tableData.length; i++) {
+                    block.tableData[i].splice(deletedIndex, 1);
+                }
+                for (let c = 0; c < block.tableData[0].length; c++) {
+                    block.tableData[0][c] = String(c + 1);
+                }
+                let newSelectedCol = deletedIndex;
+                if (newSelectedCol >= block.tableData[0].length) {
+                    newSelectedCol = block.tableData[0].length - 1;
+                }
+                blockSelections[block.id] = { selectedRow: null, selectedCol: newSelectedCol };
+                block.content = tableDataToMarkdownRaw(block.tableData);
+                renderVisualTableForBlock(block, container);
+                updateGlobalPreview();
+            } else {
+                alert('请先单击列号选中要删除的列');
+            }
+        });
+        
+        container.innerHTML = '';
+        container.appendChild(wrapper);
+    }
+    
+    function renderAllBlocks() {
+        const container = document.getElementById('blocks-container');
+        if (!container) return;
+        
+        if (blocks.length === 0) {
+            container.innerHTML = '<div class="empty-hint">✨ 点击上方按钮添加表格块或文本块</div>';
+            document.getElementById('preview-area').textContent = '暂无内容，请添加表格块或文本块';
+            return;
+        }
+        
+        container.innerHTML = '';
+        blocks.forEach((block) => {
+            const blockDiv = document.createElement('div');
+            blockDiv.className = 'editor-block';
+            blockDiv.dataset.id = block.id;
+            
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'block-header';
+            const typeLabel = block.type === 'table' ? '📊 表格区块' : '📝 文本区块';
+            const headerLeft = document.createElement('span');
+            headerLeft.textContent = `${typeLabel} (ID:${block.id})`;
+            const headerButtons = document.createElement('div');
+            headerButtons.className = 'header-buttons';
+            
+            const cutBtn = document.createElement('button');
+            cutBtn.textContent = '✂️ 剪切';
+            cutBtn.className = 'cut-btn';
+            cutBtn.setAttribute('data-id', block.id);
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '✖ 删除';
+            delBtn.className = 'delete-btn';
+            delBtn.setAttribute('data-id', block.id);
+            
+            headerButtons.appendChild(cutBtn);
+            headerButtons.appendChild(delBtn);
+            headerDiv.appendChild(headerLeft);
+            headerDiv.appendChild(headerButtons);
+            blockDiv.appendChild(headerDiv);
+            
+            if (block.type === 'table') {
+                const visualArea = document.createElement('div');
+                visualArea.className = 'table-visual-area';
+                blockDiv.appendChild(visualArea);
+                renderVisualTableForBlock(block, visualArea);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.className = 'textarea-block';
+                textarea.value = block.content || '';
+                textarea.placeholder = '输入逻辑公式或Markdown...';
+                textarea.style.minHeight = '380px';
+                textarea.rows = 12;
+                textarea.addEventListener('input', (e) => {
+                    block.content = e.target.value;
+                    updateGlobalPreview();
+                });
+                textarea.addEventListener('focus', (e) => {
+                    savedFocusInfo = {
+                        element: textarea,
+                        start: textarea.selectionStart,
+                        end: textarea.selectionEnd,
+                        block: block,
+                        blockId: block.id,
+                        isCellInput: false
+                    };
+                });
+                textarea.addEventListener('click', (e) => {
+                    savedFocusInfo = {
+                        element: textarea,
+                        start: textarea.selectionStart,
+                        end: textarea.selectionEnd,
+                        block: block,
+                        blockId: block.id,
+                        isCellInput: false
+                    };
+                });
+                textarea.addEventListener('keyup', (e) => {
+                    savedFocusInfo = {
+                        element: textarea,
+                        start: textarea.selectionStart,
+                        end: textarea.selectionEnd,
+                        block: block,
+                        blockId: block.id,
+                        isCellInput: false
+                    };
+                });
+                blockDiv.appendChild(textarea);
+            }
+            
+            cutBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                clipboardBlock = JSON.parse(JSON.stringify(block));
+                clipboardType = block.type;
+                const idToCut = parseInt(cutBtn.dataset.id);
+                blocks = blocks.filter(b => b.id !== idToCut);
+                delete blockSelections[idToCut];
+                blockSelections = {};
+                updateInsertButtonsStyle();
+                renderAllBlocks();
+                updateGlobalPreview();
+            });
+            
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idToDel = parseInt(delBtn.dataset.id);
+                blocks = blocks.filter(b => b.id !== idToDel);
+                delete blockSelections[idToDel];
+                if (clipboardBlock && clipboardBlock.id === idToDel) {
+                    clipboardBlock = null;
+                    clipboardType = null;
+                    updateInsertButtonsStyle();
+                }
+                renderAllBlocks();
+                updateGlobalPreview();
+            });
+            
+            container.appendChild(blockDiv);
+        });
+        updateGlobalPreview();
+    }
+    
+    function addTableBlock() {
+        const defaultData = getDefaultTableData();
+        const mdContent = tableDataToMarkdownRaw(defaultData);
+        const newBlock = {
+            id: nextId++,
+            type: 'table',
+            content: mdContent,
+            tableData: JSON.parse(JSON.stringify(defaultData))
+        };
+        const focusedIndex = getFocusedBlockIndex();
+        insertBlockAt(newBlock, focusedIndex);
+        blockSelections[newBlock.id] = { selectedRow: null, selectedCol: null };
+        renderAllBlocks();
+        setTimeout(() => {
+            const lastBlock = document.querySelector(`.editor-block[data-id="${newBlock.id}"]`);
+            if (lastBlock) lastBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+    }
+    
+    function addTextBlock() {
+        const newBlock = {
+            id: nextId++,
+            type: 'text',
+            content: '',
+            tableData: null
+        };
+        const focusedIndex = getFocusedBlockIndex();
+        insertBlockAt(newBlock, focusedIndex);
+        renderAllBlocks();
+        setTimeout(() => {
+            const lastBlock = document.querySelector(`.editor-block[data-id="${newBlock.id}"]`);
+            if (lastBlock) lastBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+    }
+    
+    function pasteTableBlock() {
+        if (!clipboardBlock || clipboardBlock.type !== 'table') {
+            alert('剪贴板中没有表格块可粘贴');
+            return;
+        }
+        const newBlock = {
+            id: nextId++,
+            type: 'table',
+            content: clipboardBlock.content,
+            tableData: JSON.parse(JSON.stringify(clipboardBlock.tableData))
+        };
+        const focusedIndex = getFocusedBlockIndex();
+        insertBlockAt(newBlock, focusedIndex);
+        blockSelections[newBlock.id] = { selectedRow: null, selectedCol: null };
+        clipboardType = null;
+        clipboardBlock = null;
+        updateInsertButtonsStyle();
+        renderAllBlocks();
+        setTimeout(() => {
+            const lastBlock = document.querySelector(`.editor-block[data-id="${newBlock.id}"]`);
+            if (lastBlock) lastBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+    }
+    
+    function pasteTextBlock() {
+        if (!clipboardBlock || clipboardBlock.type !== 'text') {
+            alert('剪贴板中没有文本块可粘贴');
+            return;
+        }
+        const newBlock = {
+            id: nextId++,
+            type: 'text',
+            content: clipboardBlock.content,
+            tableData: null
+        };
+        const focusedIndex = getFocusedBlockIndex();
+        insertBlockAt(newBlock, focusedIndex);
+        clipboardType = null;
+        clipboardBlock = null;
+        updateInsertButtonsStyle();
+        renderAllBlocks();
+        setTimeout(() => {
+            const lastBlock = document.querySelector(`.editor-block[data-id="${newBlock.id}"]`);
+            if (lastBlock) lastBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+    }
+    
+    function handleAddTableClick() {
+        if (clipboardType === 'table') {
+            pasteTableBlock();
+        } else {
+            addTableBlock();
+        }
+    }
+    
+    function handleAddTextClick() {
+        if (clipboardType === 'text') {
+            pasteTextBlock();
+        } else {
+            addTextBlock();
+        }
+    }
+    
+    function convertTextContent(raw) {
+        const converted = convertLatex(raw);
+        const lines = converted.split('\n');
+        return lines.map(line => {
+            if (line.trim() === '') return '';
+            return `$$ ${line.trim()} $$`;
+        }).join('\n');
+    }
+    
+    function updateGlobalPreview() {
+        let finalPreview = '';
+        for (let block of blocks) {
+            if (block.type === 'text') {
+                const converted = convertTextContent(block.content || '');
+                if (converted) {
+                    finalPreview += (finalPreview ? '\n\n' : '') + converted;
+                }
+            } 
+            else if (block.type === 'table') {
+                if (block.tableData && block.tableData.length >= 2) {
+                    const convertedTable = tableDataToMarkdownWithLatex(block.tableData);
+                    if (convertedTable) {
+                        finalPreview += (finalPreview ? '\n\n' : '') + convertedTable;
+                    }
+                } else if (block.content) {
+                    const parsed = parseMarkdownTableFromText(block.content);
+                    if (parsed && parsed.length >= 2) {
+                        const convertedTable = tableDataToMarkdownWithLatex(parsed);
+                        finalPreview += (finalPreview ? '\n\n' : '') + convertedTable;
+                    } else {
+                        finalPreview += (finalPreview ? '\n\n' : '') + block.content;
+                    }
+                }
+            }
+        }
+        const previewArea = document.getElementById('preview-area');
+        if (previewArea) {
+            previewArea.textContent = finalPreview || '暂无内容，请添加表格块或文本块';
+        }
+    }
+    
+    function parseMarkdownTableFromText(mdText) {
+        const lines = mdText.split('\n');
+        let tableLines = [];
+        let inTable = false;
+        for (let line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+                if (!inTable) inTable = true;
+                tableLines.push(trimmed);
+            } else {
+                if (inTable && tableLines.length >= 2) break;
+                if (inTable) { inTable = false; tableLines = []; }
+            }
+        }
+        if (tableLines.length >= 2) {
+            const headers = tableLines[0].split('|').filter(c => c.trim() !== '').map(c => c.trim());
+            if (headers.length === 0) return null;
+            const dataRows = tableLines.slice(2);
+            const tableData = [headers];
+            for (let row of dataRows) {
+                let cells = row.split('|').filter(c => c.trim() !== '').map(c => c.trim());
+                while (cells.length < headers.length) cells.push('');
+                tableData.push(cells);
+            }
+            return tableData;
+        }
+        return null;
+    }
+    
+    function insertSymbolToActiveBlock(symbol) {
+        if (!savedFocusInfo || !savedFocusInfo.element || !document.body.contains(savedFocusInfo.element)) {
+            alert('请先点击文本块或表格单元格，再插入符号');
+            return false;
+        }
+        
+        const element = savedFocusInfo.element;
+        const start = savedFocusInfo.start;
+        const end = savedFocusInfo.end;
+        const val = element.value;
+        const newVal = val.substring(0, start) + symbol + val.substring(end);
+        element.value = newVal;
+        element.focus();
+        const newCursorPos = start + symbol.length;
+        element.selectionStart = newCursorPos;
+        element.selectionEnd = newCursorPos;
+        
+        savedFocusInfo.start = newCursorPos;
+        savedFocusInfo.end = newCursorPos;
+        
+        if (savedFocusInfo.isCellInput && savedFocusInfo.block) {
+            const block = savedFocusInfo.block;
+            const row = savedFocusInfo.row;
+            const col = savedFocusInfo.col;
+            if (block.type === 'table' && block.tableData && block.tableData[row] && block.tableData[row][col] !== undefined) {
+                block.tableData[row][col] = newVal;
+                block.content = tableDataToMarkdownRaw(block.tableData);
+                updateGlobalPreview();
+            }
+        } else if (savedFocusInfo.block && savedFocusInfo.block.type === 'text') {
+            const block = savedFocusInfo.block;
+            block.content = newVal;
+            updateGlobalPreview();
+        } else {
+            const inputEvent = new Event('input', { bubbles: true });
+            element.dispatchEvent(inputEvent);
+        }
+        
+        return true;
+    }
+    
+    function bindAllSymbolButtons() {
+        const allBtns = document.querySelectorAll('#symbol-btn-container .symbol-btn');
+        allBtns.forEach(btn => {
+            btn.removeEventListener('click', btn._listener);
+            let symbol = btn.getAttribute('data-symbol');
+            if (!symbol) {
+                let rawText = btn.childNodes[0]?.nodeType === 3 ? btn.childNodes[0].textContent : btn.textContent;
+                symbol = rawText.replace('×', '').trim();
+            }
+            const handler = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                insertSymbolToActiveBlock(symbol);
+            };
+            btn.addEventListener('click', handler);
+            btn._listener = handler;
+        });
+    }
+    
+    function addCustomSymbol() {
+        const sym = document.getElementById('custom-symbol').value.trim();
+        const syn = document.getElementById('custom-syntax').value.trim();
+        if (!sym || !syn) { alert('请输入符号和语法'); return; }
+        if (symbolToSyntaxMap.some(i => i.symbol === sym)) { alert('符号已存在'); return; }
+        symbolToSyntaxMap.unshift({ symbol: sym, syntax: syn + ' ' });
+        const newBtn = document.createElement('button');
+        newBtn.className = 'symbol-btn custom-symbol-btn';
+        newBtn.setAttribute('data-symbol', sym);
+        newBtn.textContent = sym;
+        const delSpan = document.createElement('button');
+        delSpan.className = 'delete-symbol-btn';
+        delSpan.textContent = '×';
+        delSpan.addEventListener('click', (e) => {
+            e.stopPropagation();
+            newBtn.remove();
+            symbolToSyntaxMap = symbolToSyntaxMap.filter(item => item.symbol !== sym);
+            updateGlobalPreview();
+        });
+        newBtn.appendChild(delSpan);
+        document.getElementById('symbol-btn-container').appendChild(newBtn);
+        bindAllSymbolButtons();
+        document.getElementById('custom-symbol').value = '';
+        document.getElementById('custom-syntax').value = '';
+        updateGlobalPreview();
+    }
+    
+    document.getElementById('add-table-block-btn').addEventListener('click', handleAddTableClick);
+    document.getElementById('add-text-block-btn').addEventListener('click', handleAddTextClick);
+    document.getElementById('add-custom-btn').addEventListener('click', addCustomSymbol);
+    document.getElementById('symbol-query-btn').addEventListener('click', () => window.open('https://www.processon.com/latex-symbol#_29', '_blank'));
+    document.getElementById('copy-btn').addEventListener('click', async () => {
+        const previewText = document.getElementById('preview-area').textContent;
+        try {
+            await navigator.clipboard.writeText(previewText);
+            const btn = document.getElementById('copy-btn');
+            btn.textContent = '复制成功！';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = '📋 复制预览内容'; btn.classList.remove('copied'); }, 1500);
+        } catch(e) { alert('复制失败'); }
+    });
+    
+    bindAllSymbolButtons();
+    blocks = [];
+    nextId = 1;
+    blockSelections = {};
+    renderAllBlocks();
+</script>
+</body>
+</html>
