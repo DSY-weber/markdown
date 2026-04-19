@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>逻辑公式编辑器 - 多区块表格/文本 + LaTeX预览</title>
+    <title>逻辑公式编辑器 - 多区块表格/文本 + LaTeX预览 (区块间单换行)</title>
     <style>
         * {
             margin: 0;
@@ -568,7 +568,7 @@
     </div>
 
     <div class="preview-section">
-        <h2>📄 预览区 </h2>
+        <h2>📄 预览区 (区块间单个换行分隔)</h2>
         <div id="preview-area">暂无内容，请添加表格块或文本块</div>
         <button class="copy-btn" id="copy-btn">📋 复制预览内容</button>
     </div>
@@ -586,6 +586,7 @@
             <li>🔣 <strong>自定义符号</strong>：可添加任意符号及其LaTeX语法映射，一键插入。</li>
             <li>📋 <strong>预览复制</strong>：右侧预览区内容支持一键复制，方便分享到支持LaTeX的平台。</li>
             <li>🎨 <strong>交互优化</strong>：点击行号仅选中行（橙色），点击列号仅选中列（蓝色），两者互斥。点击单元格或外部区域自动清除选中。删除行/列后自动选中相邻项。</li>
+            <li>⚡ <strong>预览区更新</strong>：不同区块（表格/文本）之间保留<strong>一个换行符</strong>作为分隔，区块内部换行不受影响，既保证视觉清晰又不冗余。</li>
         </ul>
         <button class="close-help" id="close-help-btn">明白了</button>
     </div>
@@ -731,20 +732,16 @@
         const table = wrapperElement.querySelector('.visual-table');
         if (!table) return;
         
-        // 清除所有行/列高亮类
         table.querySelectorAll('tr.row-selected').forEach(tr => tr.classList.remove('row-selected'));
         table.querySelectorAll('th.col-selected').forEach(th => th.classList.remove('col-selected'));
         table.querySelectorAll('td.col-selected').forEach(td => td.classList.remove('col-selected'));
         
-        // 应用行选中（如果有行选中，则清除列选中对应的输入框背景色）
         if (sel.selectedRow !== null && sel.selectedRow >= 0) {
             const rows = table.querySelectorAll('tbody tr');
             if (rows[sel.selectedRow]) rows[sel.selectedRow].classList.add('row-selected');
-            // 清除所有输入框的内联背景色（因为行选中覆盖了列样式）
             table.querySelectorAll('.cell-input').forEach(input => input.style.backgroundColor = '');
         }
         
-        // 应用列选中（如果有列选中，则清除行选中对应的类，但行类已经被清除）
         if (sel.selectedCol !== null && sel.selectedCol >= 0) {
             const headerThs = table.querySelectorAll('thead tr th');
             if (headerThs[sel.selectedCol + 1]) headerThs[sel.selectedCol + 1].classList.add('col-selected');
@@ -758,7 +755,6 @@
                     if (input) input.style.backgroundColor = '#cce5ff';
                 }
             });
-            // 对于非选中列，确保背景色清除
             const allInputs = table.querySelectorAll('.cell-input');
             allInputs.forEach(input => {
                 const td = input.closest('td');
@@ -767,7 +763,6 @@
                 }
             });
         } else {
-            // 没有列选中时，清除所有输入框的内联背景色
             table.querySelectorAll('.cell-input').forEach(input => input.style.backgroundColor = '');
         }
         
@@ -911,7 +906,6 @@
             if (sel.selectedCol === c) th.classList.add('col-selected');
             th.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // 选中列时清除行选中
                 blockSelections[block.id] = { selectedRow: null, selectedCol: c };
                 updateTableSelectionOnly(block, wrapper);
                 updateGlobalPreview();
@@ -929,7 +923,6 @@
             rowNumberTd.className = 'row-number-cell';
             rowNumberTd.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // 选中行时清除列选中
                 blockSelections[block.id] = { selectedRow: r, selectedCol: null };
                 updateTableSelectionOnly(block, wrapper);
                 updateGlobalPreview();
@@ -937,7 +930,6 @@
             tr.appendChild(rowNumberTd);
             for (let c = 0; c < cols; c++) {
                 const td = document.createElement('td');
-                // 初始渲染时根据选中状态添加类
                 if (sel.selectedCol === c) td.classList.add('col-selected');
                 const input = createCellInput(
                     tableData[r][c] !== undefined ? tableData[r][c] : '',
@@ -958,7 +950,6 @@
         tableContainer.innerHTML = '';
         tableContainer.appendChild(table);
         
-        // 初始样式同步
         setTimeout(() => {
             updateTableSelectionOnly(block, wrapper);
         }, 0);
@@ -1071,19 +1062,24 @@
     function pasteTextBlock() { if (!clipboardBlock || clipboardBlock.type !== 'text') { alert('剪贴板中没有文本块'); return; } const newBlock = { id: nextId++, type: 'text', content: clipboardBlock.content, tableData: null }; insertBlockAt(newBlock, getFocusedBlockIndex()); clipboardBlock = null; clipboardType = null; updateInsertButtonsStyle(); renderAllBlocks(); }
     function handleAddTableClick() { if (clipboardType === 'table') pasteTableBlock(); else addTableBlock(); }
     function handleAddTextClick() { if (clipboardType === 'text') pasteTextBlock(); else addTextBlock(); }
+    
+    // 关键修改：区块之间只保留一个换行符（\n），避免多余空行
     function updateGlobalPreview() { 
-        let finalPreview = ''; 
+        let parts = [];
         for (let block of blocks) { 
             if (block.type === 'text') { 
                 const converted = convertLatex(block.content || '').split('\n').map(l => l.trim() ? `$$ ${l.trim()} $$` : '').join('\n'); 
-                if (converted) finalPreview += (finalPreview ? '\n\n' : '') + converted; 
+                if (converted) parts.push(converted);
             } else if (block.type === 'table' && block.tableData?.length >= 1) { 
                 const convertedTable = tableDataToMarkdownWithLatex(block.tableData); 
-                if (convertedTable) finalPreview += (finalPreview ? '\n\n' : '') + convertedTable; 
+                if (convertedTable) parts.push(convertedTable);
             } 
-        } 
+        }
+        // 使用单个换行符连接各个区块的预览内容
+        const finalPreview = parts.join('\n');
         document.getElementById('preview-area').textContent = finalPreview || '暂无内容，请添加表格块或文本块'; 
     }
+    
     function insertSymbolToActiveBlock(symbol) { if (!savedFocusInfo?.element || !document.body.contains(savedFocusInfo.element)) { alert('请先点击文本块或表格单元格'); return false; } const el = savedFocusInfo.element; const start = savedFocusInfo.start; const end = savedFocusInfo.end; const newVal = el.value.substring(0, start) + symbol + el.value.substring(end); el.value = newVal; el.focus(); const newPos = start + symbol.length; el.selectionStart = newPos; el.selectionEnd = newPos; savedFocusInfo.start = newPos; savedFocusInfo.end = newPos; if (savedFocusInfo.isCellInput && savedFocusInfo.block) { const b = savedFocusInfo.block; const r = savedFocusInfo.row, c = savedFocusInfo.col; if (b.type === 'table' && b.tableData?.[r]) { b.tableData[r][c] = newVal; b.content = tableDataToMarkdownRaw(b.tableData); updateGlobalPreview(); } } else if (savedFocusInfo.block?.type === 'text') { savedFocusInfo.block.content = newVal; updateGlobalPreview(); } else { el.dispatchEvent(new Event('input', { bubbles: true })); } return true; }
     function bindAllSymbolButtons() { document.querySelectorAll('#symbol-btn-container .symbol-btn').forEach(btn => { const symbol = btn.getAttribute('data-symbol') || btn.textContent.replace('×','').trim(); const handler = (e) => { e.preventDefault(); insertSymbolToActiveBlock(symbol); }; btn.removeEventListener('click', btn._listener); btn.addEventListener('click', handler); btn._listener = handler; }); }
     function addCustomSymbol() { const sym = document.getElementById('custom-symbol').value.trim(); const syn = document.getElementById('custom-syntax').value.trim(); if (!sym || !syn) { alert('请输入符号和语法'); return; } if (symbolToSyntaxMap.some(i => i.symbol === sym)) { alert('符号已存在'); return; } symbolToSyntaxMap.unshift({ symbol: sym, syntax: syn + ' ' }); const newBtn = document.createElement('button'); newBtn.className = 'symbol-btn custom-symbol-btn'; newBtn.setAttribute('data-symbol', sym); newBtn.textContent = sym; const delSpan = document.createElement('button'); delSpan.className = 'delete-symbol-btn'; delSpan.textContent = '×'; delSpan.addEventListener('click', (e) => { e.stopPropagation(); newBtn.remove(); symbolToSyntaxMap = symbolToSyntaxMap.filter(item => item.symbol !== sym); updateGlobalPreview(); }); newBtn.appendChild(delSpan); document.getElementById('symbol-btn-container').appendChild(newBtn); bindAllSymbolButtons(); document.getElementById('custom-symbol').value = ''; document.getElementById('custom-syntax').value = ''; updateGlobalPreview(); }
